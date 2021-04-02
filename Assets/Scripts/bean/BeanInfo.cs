@@ -24,6 +24,7 @@ public class AlbumInfo
     public string name;
     public long publishTime;
     public long picId;
+    public string picUrl;
     public int size;
     public int copyrightId;
     public int status;
@@ -37,6 +38,7 @@ public class SongInfo
     public int id;
     public string name;
     public int duration;
+    public int bitrate;  //自定义添加的字段，从文件里面读取
     public int copyrightId;
 
     public int status;
@@ -65,16 +67,19 @@ public class SongInfo
             musicId = id,
             musicName = name,
             artist = art,
-            album = album?.name ?? "",
+            
             albumId = album?.id ?? 0,
+            album = album?.name ?? "",
             albumPicDocId = album?.picId.ToString() ?? "0",
-            albumPic = album?.artist?.img1v1Url ?? "",
-            bitrate = 128000,
+            albumPic = album?.picUrl ?? "",
+            
+            // mp3DocId = "",  //这个不知道怎么来的
+            bitrate = bitrate, //这个参考值
             duration = this.duration,
             mvId = this.mvid,
-            format = "mp3",
             alias = new string[] { },
             transNames = new string[] { },
+            format = "mp3",
         };
     }
 }
@@ -85,6 +90,7 @@ public class SearchInfo
     public List<SongInfo> songs;
     public bool hasMore;
     public int songCount;
+    public int code;
 }
 
 [Serializable]
