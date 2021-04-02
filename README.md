@@ -1,5 +1,5 @@
-# Change163MusicMetaData
-Change163MusicMetaData,修改mp3的comment信息，让网易云可以识别出来歌曲，本项目是一个Unity3D项目，可以打出各个端的程序包。
+# Repair163MusicComment
+Repair163MusicComment，修复修改mp3的Comment信息，让网易云可以识别出来别的地方下载的歌曲
 
 # 界面
 
@@ -7,8 +7,9 @@ Change163MusicMetaData,修改mp3的comment信息，让网易云可以识别出�
 
 # 用法
 
- - 输入歌曲文件夹的地址（支持拖放），会修改文件夹里面的全部歌曲
- - 点击修改，等待下面转换结果打印出来了即可
+ - 输入歌曲文件夹的地址（支持拖放）
+ - 点击修改
+ - 等待下面转换结果打印出来了即可
 
 # 原理
-用过api接口获取歌曲的信息，然后生成comment，设置到mp3的metadata里面，使得网易云可以识别到歌曲。
+用网易云音乐的api接口搜索歌曲，获取歌曲的信息，然后生成comment，再设置到mp3的metadata里面的comment，从而使得网易云可以识别到其他渠道下载的歌曲。
