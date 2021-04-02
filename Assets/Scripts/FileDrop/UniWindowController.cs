@@ -4,7 +4,7 @@ using UnityEngine;
 /**
 * Create By: {Skyhand}
 * Date: {2021-04-01}
-* Desc: 
+* Desc: Window和Mac 控制拖放文件，参考Github： UniWindowController
 */ 
 public class UniWindowController: MonoBehaviour
 {
@@ -27,10 +27,7 @@ public class UniWindowController: MonoBehaviour
     }
     void OnDestroy()
     {
-        if (uniWinCore != null)
-        {
-            uniWinCore.Dispose();
-        }
+        uniWinCore?.Dispose();
     }
     
     void Update()
@@ -52,7 +49,8 @@ public class UniWindowController: MonoBehaviour
     public void SetAllowDrop(bool enabled)
     {
         if (uniWinCore == null) return;
-
+        Debug.Log("开启拖拽文件功能");
+        uniWinCore.AttachMyWindow();
         uniWinCore.SetAllowDrop(enabled);
         _allowDropFiles = enabled;
     }

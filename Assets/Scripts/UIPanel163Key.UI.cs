@@ -1,46 +1,57 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-/// <summary>
-/// UI类
-/// </summary>
-public partial class UIPanel163Key : MonoBehaviour
+
+namespace Skyhand
 {
-    public UniWindowController mUniController;
-
-    public InputField mIpApiAddr;
-    public InputField mIpOrigin;
-    public Toggle mTgCover;
-    public Text mTvStatus;
-
-    public Text mTvLog;
-
-    public Button mBtnEdit;
-    public Button mBtnPass;
-    
-    
-    public GameObject mPanelPass;
-
-    private void Start()
+    /// <summary>
+    /// UI类
+    /// </summary>
+    public partial class UIPanel163Key : MonoBehaviour
     {
-        mBtnPass.onClick.AddListener(() =>
-        {
-            mPanelPass.gameObject.SetActive(true);
-        });
-        
-        mTvStatus.text = "";
-        mTvLog.text = "";
+        public UniWindowController mUniController;
 
-        
-        //控制文件拖拽
-        mUniController.SetAllowDrop(true);
-        mUniController.OnDropFiles += files =>
+        public InputField mIpApiAddr;
+        public InputField mIpOrigin;
+        public Toggle mTgCover;
+        public Text mTvStatus;
+
+        public Text mTvLog;
+
+        public Button mBtnEdit;
+        public Button mBtnPass;
+
+
+        public GameObject mLogContent;
+        public GameObject mPanelPass;
+
+        private void Start()
         {
-            if (files.Length > 0)
+            mBtnPass.onClick.AddListener(() => { mPanelPass.gameObject.SetActive(true); });
+
+            mTvStatus.text = "";
+            mTvLog.text = "";
+ 
+            //控制文件拖拽 
+            mUniController.SetAllowDrop(true);
+            mUniController.OnDropFiles += files =>
             {
-                mIpOrigin.text = files[0];
-            }
-        };
-    }
+                if (files.Length > 0)
+                {
+                    mLog.Enqueue("获取到拖放文件路径：" + files[0]);
+                    mIpOrigin.text = files[0];
+                }
+            };
+        }
 
+        private void ClearLog()
+        {
+            mTvLog.text = "";
+            // for (int i = 0; i < mLogContent.transform.childCount; i++)
+            // {
+            //     GameObject.Destroy(mLogContent.transform.GetChild(i).gameObject);
+            // }
+        }
+
+    }
 }

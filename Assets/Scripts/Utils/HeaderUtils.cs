@@ -1,4 +1,5 @@
 using System;
+using UnityEngine;
 
 /**
 * Create By: {Skyhand}
@@ -13,9 +14,7 @@ public class HeaderUtils
             //safari 5.1 – MAC
             "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_8; en-us) AppleWebKit/534.50 (KHTML, like Gecko) Version/5.1 Safari/534.50",
             //safari 5.1 – Windows
-            "Mozilla/5.0 (Windows; U; Windows NT 6.1; en-us) AppleWebKit/534.50 (KHTML, like Gecko) Version/5.1 Safari/534.50",
-            //IE 9.0
-            "Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0;",
+            "Mozilla/5.0 (Windows; U; Windows NT 6.1; en-us) AppleWebKit/534.50 (KHTML, like Gecko) Version/5.1 Safari/534.50", 
             //Firefox 4.0.1 – MAC
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.6; rv:2.0.1) Gecko/20100101 Firefox/4.0.1",
             //Firefox 4.0.1 – Windows
@@ -71,16 +70,15 @@ public class HeaderUtils
             //UCOpenwave
             "Openwave/ UCWEB7.0.2.37/28/999",
             //UC Opera
-            "Mozilla/4.0 (compatible; MSIE 6.0; ) Opera/UCWEB7.0.2.37/28/999",
+            "Mozilla/4.0 (compatible; MSIE 6.0;) Opera/UCWEB7.0.2.37/28/999",
         };
 
         public static string GetHeader(int index)
-        {
+        { 
             if (index >= 0 && RequestHeader.Length > index)
-            {
+            { 
                 return RequestHeader[index];
-            }
-
+            } 
             throw new Exception("获取UserAgent的索引错误：" + index );
         }
 
