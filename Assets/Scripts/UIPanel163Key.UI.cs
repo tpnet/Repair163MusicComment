@@ -21,6 +21,9 @@ namespace Skyhand
         public Button mBtnEdit;
         public Button mBtnPass;
         // public Button mBtnError;
+
+        public InputField mIpDiyUrl;
+        public Toggle mTgDiyUrl;
  
 
         public GameObject mLogContent;
@@ -44,6 +47,11 @@ namespace Skyhand
                     mIpOrigin.text = files[0];
                 }
             };
+            
+            mTgDiyUrl.onValueChanged.AddListener((isOn) =>
+            {
+                mIpDiyUrl.gameObject.SetActive(isOn);
+            });
             
             // mBtnError.onClick.AddListener(() =>
             // {

@@ -25,18 +25,16 @@ namespace Skyhand
         //保存每首歌的信息。key为路径
         private Dictionary<string, SongInfo> mMapKeyInfo = new Dictionary<string, SongInfo>();
 
+        
         //忽略的数量
         private int mIgnoreNum = 0;
-
         //失败数量
         private int mFailNum = 0;
-       
-
         //文件总数量
         private int mAllNum = 0;
-
         //修改的数量
         private int mDealNum = 0;
+        
 
         //队列日志，先进先出
         private Queue<string> mLog = new Queue<string>();
@@ -51,7 +49,9 @@ namespace Skyhand
         private Coroutine mEditCoroutine;
 
         //是文件还是文件夹，true为文件
-        private bool mIsFile =false;
+        private bool mIsFile = false;
+        //diy的歌曲id
+        private int mDiySongID = 0;
 
         private void Awake()
         {
@@ -61,10 +61,10 @@ namespace Skyhand
                 {
                     ClearLog();
                     mBtnEdit.interactable = false;
-                    mEditCoroutine = StartCoroutine(EditComment(mIpOrigin.text)); 
+                    mEditCoroutine = StartCoroutine(EditComment(mIpOrigin.text));
                 }
-            }); 
-            
+            });
+
             //开启日志协程
             StartCoroutine(ShowLog());
         }
@@ -74,6 +74,10 @@ namespace Skyhand
         /// </summary>
         private bool CheckEdit()
         {
+            
+            mDiySongID = 0;
+            mIsFile = false;
+            
             mApi = mIpApiAddr.text.Trim();
             if (string.IsNullOrEmpty(mApi))
             {
@@ -82,37 +86,83 @@ namespace Skyhand
                 return false;
             }
 
-            if (string.IsNullOrEmpty(mIpOrigin.text))
+            var filePath = mIpOrigin.text.Trim();
+            if (string.IsNullOrEmpty(filePath))
             {
-                Debug.LogError("请输入文件/文件夹地址");
-                mLog.Enqueue("<color=#ff0000>请输入文件夹地址</color>");
+                Debug.LogError("请输入 mp3文件/文件夹 地址");
+                mLog.Enqueue("<color=#ff0000>请输入 <b>mp3文件/文件夹</b> 地址</color>");
                 return false;
             }
             else
-            { 
-                if (System.IO.File.Exists(mIpOrigin.text))
+            {
+                if (System.IO.File.Exists(filePath) && System.IO.Path.GetExtension(filePath).Equals(".mp3"))
                 {
                     mIsFile = true;
-                }else if(Directory.Exists(mIpOrigin.text))
+                }
+                else if (Directory.Exists(filePath))
                 {
                     mIsFile = false;
                 }
                 else
                 {
-                    Debug.LogError("请输入正确的文件/文件夹地址");
-                    mLog.Enqueue("<color=#ff0000>请输入正确的文件/文件夹地址</color>");
+                    Debug.LogError("请输入正确的 mp3文件/文件夹 地址");
+                    mLog.Enqueue("<color=#ff0000>请输入正确的 <b>mp3文件/文件夹</b> 地址</color>");
                     return false;
                 }
             }
+
+            if (!mIsFile && mTgDiyUrl.isOn)
+            {
+                Debug.LogError("只有单文件的方式才能diy修改");
+                mLog.Enqueue("<color=#ff0000>只有单文件的方式才能diy修改</color>");
+                return false; 
+            }
+
+            if (mTgDiyUrl.isOn)
+            {
+                var diyUrl = mIpDiyUrl.text.Trim();
+                var charList = diyUrl.Split('/');
+                if (charList.Length <= 0)
+                {
+                    Debug.LogError("请输入正确的 自定义修改的歌曲链接 地址");
+                    mLog.Enqueue("<color=#ff0000>请输入正确的 <b>自定义修改的歌曲链接</b> 地址</color>");
+                    return false;
+                }
+ 
+                for (var i = 0; i < charList.Length; i++)
+                {
+                    if (charList[i].Equals("song") && charList.Length > (i + 1))
+                    {
+                        var idStr = charList[i + 1];
+                        if (idStr.Contains("?"))
+                        {
+                            idStr = idStr.Split('?')[0];
+                        }
+
+                        if (!string.IsNullOrEmpty(idStr) && Utils.IsInt(idStr))
+                        {
+                            mDiySongID = int.Parse(idStr);
+                        }
+                    }
+                }
+
+                if (mDiySongID <= 0)
+                {
+                    Debug.LogError("请输入正确的 自定义修改的歌曲链接 地址");
+                    mLog.Enqueue("<color=#ff0000>请输入正确的 <b>自定义修改的歌曲链接</b> 地址</color>");
+                    return false;
+                }
+            }
+
 
             if (!mIsFile)
             {
                 if (mApi.Substring(mApi.Length - 1).Equals("/"))
                 {
                     mApi = mApi.Substring(0, mApi.Length - 1);
-                }  
+                }
             }
-            
+
             return true;
         }
 
@@ -147,15 +197,18 @@ namespace Skyhand
             mFailNum = 0;
             mDealNum = 0;
             mMapKeyInfo.Clear();
-
-            var pathList = new []{dirPath};
+            
+            var pathList = new[] {dirPath};
             if (!mIsFile)
-            { 
+            {
+                //判断单文件还是文件夹
                 pathList = Directory.GetFiles(dirPath);
             }
-            
+
             var startTime = Time.realtimeSinceStartup;
             mAllNum = pathList.Length;
+            
+            Debug.Log(mIsFile + "数量： "+ pathList.Length);
             for (var i = 0; i < pathList.Length; i++)
             {
                 var path = pathList[i];
@@ -172,39 +225,57 @@ namespace Skyhand
                         continue;
                     }
 
-                    name = f.Tag.Title;
+                    name = f.Tag.Title.Trim();
 
                     if (string.IsNullOrEmpty(name))
                     {
-                        name = path.Substring(path.LastIndexOf("/") + 1);
-                        name = name.Substring(0, name.IndexOf("."));
-                    } 
+                        //Tag里面为空就从路径里面获取
+                        name = Path.GetFileNameWithoutExtension(path);
+                        // name = path.Substring(path.LastIndexOf("/") + 1);
+                        // name = name.Substring(0, name.IndexOf("."));
+                    }
+                    Debug.Log("歌曲名字： "+ name);
+
                     if (!string.IsNullOrEmpty(name))
                     {
                         if (f.Tag.Performers != null && f.Tag.Performers.Length > 0)
-                        {//搜索增加名字
+                        {
+                            //搜索增加名字
                             name += " " + f.Tag.Performers[0];
                         }
-                        
+
                         mDealNum++;
+                        
                         mTvStatus.text = "正在处理:" + mDealNum + "/" + mAllNum + "，忽略:" + mIgnoreNum + "，失败:" + mFailNum;
-
                         mLog.Enqueue("正在处理 " + f.Tag.Title);
-                        yield return Search(path, name, (beanInfo) =>
-                        {
-                            //根据名字搜索歌曲
-                            if (beanInfo != null)
-                            {
-                                var songInfo = GetMatchSongInfo(f.Tag.Title, f.Tag.Performers, beanInfo.songs);
-                                mMapKeyInfo.Add(path, songInfo);
-                            }
-                            else
-                            {
-                                mFailNum++;
-                            }
 
-                            f.Dispose();
-                        });
+                        if (mTgDiyUrl.isOn)
+                        {//自定义修改
+                            Debug.Log("自定义修改： "+ mDiySongID);
+                            mMapKeyInfo.Add(path, new SongInfo()
+                            {
+                                id = mDiySongID, 
+                            });
+                        }
+                        else
+                        {
+                            yield return Search(path, name, (beanInfo) =>
+                            {
+                                //根据名字搜索歌曲
+                                if (beanInfo != null)
+                                {
+                                    var songInfo = GetMatchSongInfo(f.Tag.Title, f.Tag.Performers, beanInfo.songs);
+                                    mMapKeyInfo.Add(path, songInfo);
+                                }
+                                else
+                                {
+                                    mFailNum++;
+                                }
+
+                                f.Dispose();
+                            });
+                        }
+
 
                         if (i == pathList.Length - 1 || mMapKeyInfo.Count == DetailNum)
                         {
@@ -306,7 +377,7 @@ namespace Skyhand
                 var searchList = JsonUtility.FromJson<ApiInfo<SearchInfo>>(request.downloadHandler.text);
                 if (searchList.code != 200)
                 {
-                    Debug.LogError("搜索结果错误:" + path + "，" + request.downloadHandler.text );
+                    Debug.LogError("搜索结果错误:" + path + "，" + request.downloadHandler.text);
                     mLog.Enqueue("<color=#ff0000>搜索结果错误:" + path + "，" + request.downloadHandler.text + "</color>");
                     actionDone.Invoke(null);
                     yield break;
@@ -343,7 +414,7 @@ namespace Skyhand
             if (request.isHttpError || request.isNetworkError)
             {
                 Debug.Log("详情请求失败:" + request.error);
-                mLog.Enqueue("<color=#ff0000>详情请求失败:" + request.error+ "</color>");
+                mLog.Enqueue("<color=#ff0000>详情请求失败:" + request.error + "</color>");
                 actionDone.Invoke(null);
             }
             else if (request.isDone)
@@ -353,7 +424,7 @@ namespace Skyhand
                 if (searchList.code != 200)
                 {
                     Debug.LogError("详情结果错误:" + ids + "，" + request.downloadHandler.text);
-                    mLog.Enqueue("<color=#ff0000>详情结果错误:" + ids + "，" + request.downloadHandler.text+ "</color>");
+                    mLog.Enqueue("<color=#ff0000>详情结果错误:" + ids + "，" + request.downloadHandler.text + "</color>");
                     actionDone.Invoke(null);
                     if (searchList.code == -460)
                     {
