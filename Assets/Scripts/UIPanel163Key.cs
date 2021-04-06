@@ -30,6 +30,7 @@ namespace Skyhand
 
         //失败数量
         private int mFailNum = 0;
+       
 
         //文件总数量
         private int mAllNum = 0;
@@ -158,10 +159,14 @@ namespace Skyhand
                     {
                         name = path.Substring(path.LastIndexOf("/") + 1);
                         name = name.Substring(0, name.IndexOf("."));
-                    }
-
+                    } 
                     if (!string.IsNullOrEmpty(name))
                     {
+                        if (f.Tag.Performers != null && f.Tag.Performers.Length > 0)
+                        {//搜索增加名字
+                            name += " " + f.Tag.Performers[0];
+                        }
+                        
                         mDealNum++;
                         mTvStatus.text = "正在处理:" + mDealNum + "/" + mAllNum + "，忽略:" + mIgnoreNum + "，失败:" + mFailNum;
 
@@ -386,7 +391,6 @@ namespace Skyhand
                 if (name.Equals(songName.Trim()))
                 {
                     //判断歌名一模一样
-
                     foreach (var s in songActor)
                     {
                         //判断多个作者

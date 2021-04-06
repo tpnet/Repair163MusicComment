@@ -20,10 +20,12 @@ namespace Skyhand
 
         public Button mBtnEdit;
         public Button mBtnPass;
-
+        // public Button mBtnError;
+ 
 
         public GameObject mLogContent;
         public GameObject mPanelPass;
+        // public GameObject mPanelErrorList;
 
         private void Start()
         {
@@ -42,6 +44,11 @@ namespace Skyhand
                     mIpOrigin.text = files[0];
                 }
             };
+            
+            // mBtnError.onClick.AddListener(() =>
+            // {
+            //     mPanelErrorList.SetActive(true);
+            // });
         }
 
         private void ClearLog()
