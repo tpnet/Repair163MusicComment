@@ -50,6 +50,9 @@ namespace Skyhand
         //协程
         private Coroutine mEditCoroutine;
 
+        //是文件还是文件夹，true为文件
+        private bool mIsFile =false;
+
         private void Awake()
         {
             mBtnEdit.onClick.AddListener(() =>
@@ -81,24 +84,35 @@ namespace Skyhand
 
             if (string.IsNullOrEmpty(mIpOrigin.text))
             {
-                Debug.LogError("请输入文件夹地址");
+                Debug.LogError("请输入文件/文件夹地址");
                 mLog.Enqueue("<color=#ff0000>请输入文件夹地址</color>");
                 return false;
             }
             else
-            {
-                if (!Directory.Exists(mIpOrigin.text))
+            { 
+                if (System.IO.File.Exists(mIpOrigin.text))
                 {
-                    Debug.LogError("请输入正确的文件夹地址");
-                    mLog.Enqueue("<color=#ff0000>请输入正确的文件夹地址</color>");
+                    mIsFile = true;
+                }else if(Directory.Exists(mIpOrigin.text))
+                {
+                    mIsFile = false;
+                }
+                else
+                {
+                    Debug.LogError("请输入正确的文件/文件夹地址");
+                    mLog.Enqueue("<color=#ff0000>请输入正确的文件/文件夹地址</color>");
                     return false;
                 }
             }
 
-            if (mApi.Substring(mApi.Length - 1).Equals("/"))
+            if (!mIsFile)
             {
-                mApi = mApi.Substring(0, mApi.Length - 1);
-            } 
+                if (mApi.Substring(mApi.Length - 1).Equals("/"))
+                {
+                    mApi = mApi.Substring(0, mApi.Length - 1);
+                }  
+            }
+            
             return true;
         }
 
@@ -134,7 +148,12 @@ namespace Skyhand
             mDealNum = 0;
             mMapKeyInfo.Clear();
 
-            var pathList = Directory.GetFiles(dirPath);
+            var pathList = new []{dirPath};
+            if (!mIsFile)
+            { 
+                pathList = Directory.GetFiles(dirPath);
+            }
+            
             var startTime = Time.realtimeSinceStartup;
             mAllNum = pathList.Length;
             for (var i = 0; i < pathList.Length; i++)
