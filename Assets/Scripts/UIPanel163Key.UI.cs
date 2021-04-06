@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -56,9 +57,9 @@ namespace Skyhand
             // mBtnError.onClick.AddListener(() =>
             // {
             //     mPanelErrorList.SetActive(true);
-            // });
+            // }); 
         }
-
+  
         private void ClearLog()
         {
             mTvLog.text = "";

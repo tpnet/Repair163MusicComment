@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using LitJson;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -25,16 +26,19 @@ namespace Skyhand
         //保存每首歌的信息。key为路径
         private Dictionary<string, SongInfo> mMapKeyInfo = new Dictionary<string, SongInfo>();
 
-        
+
         //忽略的数量
         private int mIgnoreNum = 0;
+
         //失败数量
         private int mFailNum = 0;
+
         //文件总数量
         private int mAllNum = 0;
+
         //修改的数量
         private int mDealNum = 0;
-        
+
 
         //队列日志，先进先出
         private Queue<string> mLog = new Queue<string>();
@@ -45,23 +49,43 @@ namespace Skyhand
         //多少条内容获取一次详情
         private const int DetailNum = 20;
 
-        //协程
-        private Coroutine mEditCoroutine;
 
         //是文件还是文件夹，true为文件
         private bool mIsFile = false;
+
         //diy的歌曲id
         private int mDiySongID = 0;
 
+        //数据库管理工具
+        private NeteaseDataService mDataDataService;
+
+        //缓存歌曲路径
+        private const string DbPath =
+            "/Containers/com.netease.163music/Data/Documents/storage/sqlite_storage.sqlite3";
+
+        //是否需要重启网易云生效
+        private bool mNeedReOpen = false;
+
+        //协程是否正在执行
+        private bool mCorRunning;
+
         private void Awake()
-        {
+        { 
             mBtnEdit.onClick.AddListener(() =>
             {
-                if (CheckEdit())
+                if (mCorRunning)
                 {
-                    ClearLog();
-                    mBtnEdit.interactable = false;
-                    mEditCoroutine = StartCoroutine(EditComment(mIpOrigin.text));
+                    StopEdit();
+                }
+                else
+                {
+                    if (CheckEdit())
+                    {
+                        CheckDataService();
+                        ClearLog();
+                        mBtnEdit.GetComponentInChildren<Text>().text = "停止";
+                        StartCoroutine(nameof(EditComment),mIpOrigin.text);
+                    }
                 }
             });
 
@@ -69,15 +93,42 @@ namespace Skyhand
             StartCoroutine(ShowLog());
         }
 
+
+        /// <summary>
+        /// 初始化数据库
+        /// </summary>
+        private void CheckDataService()
+        {
+            var dbPath = Utils.GetLibiaryPath() + DbPath;
+            if (System.IO.File.Exists(dbPath))
+            {
+                mDataDataService = new NeteaseDataService(dbPath);
+                if (mDataDataService == null)
+                {
+                    Debug.LogError("连接数据库失败，修改完毕Comment之后，需要手动清除网易云缓存,路径："+ dbPath);
+                    mLog.Enqueue("<color=#ff0000>连接数据库失败，修改完毕Comment之后，需要手动清除网易云缓存，路径为："+dbPath+"</color>");
+                }
+                else
+                {                
+                    Debug.LogWarning("连接数据库成功：" + dbPath);
+                    mNeedReOpen = true;
+                }
+            }
+            else
+            {
+                Debug.LogWarning("数据库不存在：" + dbPath);
+                mNeedReOpen = true;
+            }
+        }
+
         /// <summary>
         /// 检查输入数据
         /// </summary>
         private bool CheckEdit()
         {
-            
             mDiySongID = 0;
             mIsFile = false;
-            
+
             mApi = mIpApiAddr.text.Trim();
             if (string.IsNullOrEmpty(mApi))
             {
@@ -115,7 +166,7 @@ namespace Skyhand
             {
                 Debug.LogError("只有单文件的方式才能diy修改");
                 mLog.Enqueue("<color=#ff0000>只有单文件的方式才能diy修改</color>");
-                return false; 
+                return false;
             }
 
             if (mTgDiyUrl.isOn)
@@ -128,7 +179,7 @@ namespace Skyhand
                     mLog.Enqueue("<color=#ff0000>请输入正确的 <b>自定义修改的歌曲链接</b> 地址</color>");
                     return false;
                 }
- 
+
                 for (var i = 0; i < charList.Length; i++)
                 {
                     if (charList[i].Equals("song") && charList.Length > (i + 1))
@@ -185,6 +236,13 @@ namespace Skyhand
         }
 
 
+        private void StopEdit()
+        {
+            StopCoroutine(nameof(EditComment)); 
+            mCorRunning = false;
+            mBtnEdit.GetComponentInChildren<Text>().text = "开始";
+        }
+
         /// <summary>
         /// 修改歌曲信息协程
         /// </summary>
@@ -192,12 +250,13 @@ namespace Skyhand
         /// <returns></returns>
         private IEnumerator EditComment(string dirPath)
         {
+            mCorRunning = true;
             mIgnoreNum = 0;
             mAllNum = 0;
             mFailNum = 0;
             mDealNum = 0;
             mMapKeyInfo.Clear();
-            
+
             var pathList = new[] {dirPath};
             if (!mIsFile)
             {
@@ -207,8 +266,7 @@ namespace Skyhand
 
             var startTime = Time.realtimeSinceStartup;
             mAllNum = pathList.Length;
-            
-            Debug.Log(mIsFile + "数量： "+ pathList.Length);
+ 
             for (var i = 0; i < pathList.Length; i++)
             {
                 var path = pathList[i];
@@ -234,7 +292,8 @@ namespace Skyhand
                         // name = path.Substring(path.LastIndexOf("/") + 1);
                         // name = name.Substring(0, name.IndexOf("."));
                     }
-                    Debug.Log("歌曲名字： "+ name);
+
+                    Debug.Log("歌曲名字： " + name);
 
                     if (!string.IsNullOrEmpty(name))
                     {
@@ -245,16 +304,17 @@ namespace Skyhand
                         }
 
                         mDealNum++;
-                        
+
                         mTvStatus.text = "正在处理:" + mDealNum + "/" + mAllNum + "，忽略:" + mIgnoreNum + "，失败:" + mFailNum;
                         mLog.Enqueue("正在处理 " + f.Tag.Title);
 
                         if (mTgDiyUrl.isOn)
-                        {//自定义修改
-                            Debug.Log("自定义修改： "+ mDiySongID);
+                        {
+                            //自定义修改
+                            Debug.Log("自定义修改： " + mDiySongID);
                             mMapKeyInfo.Add(path, new SongInfo()
                             {
-                                id = mDiySongID, 
+                                id = mDiySongID,
                             });
                         }
                         else
@@ -311,15 +371,17 @@ namespace Skyhand
 
                                         if (songInfo != null)
                                         {
-                                            var fCache = File.Create(keyValuePair.Key);
-
+                                            var fCache = File.Create(keyValuePair.Key); 
                                             songInfo.bitrate = fCache.Properties.AudioBitrate * 1000;
                                             var comment = JsonMapper.ToJson(songInfo.ToKeyInfo());
                                             fCache.Tag.Comment = "163 key(Don't modify):" +
-                                                                 AesUtils.Encrypt("music:" + comment, AesKey);
-
+                                                                 AesUtils.Encrypt("music:" + comment, AesKey); 
                                             fCache.Save();
                                             fCache.Dispose();
+                                            
+                                            var fileName = "/" +Path.GetFileName(keyValuePair.Key); 
+                                            //根据文件名称来删除数据库
+                                            mDataDataService?.DeleteRow(fileName);
                                         }
                                         else
                                         {
@@ -340,11 +402,25 @@ namespace Skyhand
                 }
             }
 
+            mCorRunning = false;
+            mBtnEdit.GetComponentInChildren<Text>().text = "开始";
+            yield return null;
+
             Debug.Log("搜索完毕,耗时：" + (Time.realtimeSinceStartup - startTime));
-            // EditCommentInfo();
-            mBtnEdit.interactable = true;
             mTvStatus.text = "处理完毕:" + mDealNum + "/" + mAllNum + "，忽略:" + mIgnoreNum + "，失败:" + mFailNum;
             mLog.Enqueue(mTvStatus.text);
+             
+            if (mNeedReOpen)
+            {
+                if (mDealNum > 0)
+                {
+                    Debug.Log("需要重启网易云生效");
+                    mLog.Enqueue("请重启网易云生效");
+                }
+
+                mDataDataService?.Close();
+            } 
+            
         }
 
 
@@ -429,8 +505,7 @@ namespace Skyhand
                     if (searchList.code == -460)
                     {
                         //被判定到是机器人,停止协程
-                        StopCoroutine(mEditCoroutine);
-                        mBtnEdit.interactable = true;
+                        StopEdit();
                     }
 
                     yield break;
