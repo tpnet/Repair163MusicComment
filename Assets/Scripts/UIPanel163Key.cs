@@ -22,6 +22,7 @@ namespace Skyhand
 
         //解密Comment的Aes密钥
         public const string AesKey = "#14ljk_!\\]&0U<\'(";
+        public const string MatchTag = "match";
 
         //保存每首歌的信息。key为路径
         private Dictionary<string, SongInfo> mMapKeyInfo = new Dictionary<string, SongInfo>();
@@ -70,7 +71,7 @@ namespace Skyhand
         private bool mCorRunning;
 
         private void Awake()
-        { 
+        {
             mBtnEdit.onClick.AddListener(() =>
             {
                 if (mCorRunning)
@@ -84,7 +85,7 @@ namespace Skyhand
                         CheckDataService();
                         ClearLog();
                         mBtnEdit.GetComponentInChildren<Text>().text = "停止";
-                        StartCoroutine(nameof(EditComment),mIpOrigin.text);
+                        StartCoroutine(nameof(EditComment), mIpOrigin.text);
                     }
                 }
             });
@@ -105,11 +106,11 @@ namespace Skyhand
                 mDataDataService = new NeteaseDataService(dbPath);
                 if (mDataDataService == null)
                 {
-                    Debug.LogError("连接数据库失败，修改完毕Comment之后，需要手动清除网易云缓存,路径："+ dbPath);
-                    mLog.Enqueue("<color=#ff0000>连接数据库失败，修改完毕Comment之后，需要手动清除网易云缓存，路径为："+dbPath+"</color>");
+                    Debug.LogError("连接数据库失败，修改完毕Comment之后，需要手动清除网易云缓存,路径：" + dbPath);
+                    mLog.Enqueue("<color=#ff0000>连接数据库失败，修改完毕Comment之后，需要手动清除网易云缓存，路径为：" + dbPath + "</color>");
                 }
                 else
-                {                
+                {
                     Debug.LogWarning("连接数据库成功：" + dbPath);
                     mNeedReOpen = true;
                 }
@@ -238,7 +239,7 @@ namespace Skyhand
 
         private void StopEdit()
         {
-            StopCoroutine(nameof(EditComment)); 
+            StopCoroutine(nameof(EditComment));
             mCorRunning = false;
             mBtnEdit.GetComponentInChildren<Text>().text = "开始";
         }
@@ -266,7 +267,7 @@ namespace Skyhand
 
             var startTime = Time.realtimeSinceStartup;
             mAllNum = pathList.Length;
- 
+
             for (var i = 0; i < pathList.Length; i++)
             {
                 var path = pathList[i];
@@ -275,13 +276,22 @@ namespace Skyhand
                     var name = "";
                     var f = File.Create(path);
 
-                    if (!mTgCover.isOn && !string.IsNullOrEmpty(f.Tag.Comment))
+                    if (!mTgCover.isOn && f.Tag.Comment.Contains("163"))
                     {
                         //不覆盖
-                        Debug.LogWarning("跳过：" + f.Tag.Title);
+                        Debug.LogWarning("不覆盖已经有Comment的，跳过：" + f.Tag.Title);
+                        mIgnoreNum++;
+                        continue;
+                    } 
+
+                    if (!mTgCoverMatch.isOn && MatchTag.Equals(f.Tag.Description))
+                    {
+                        //不覆盖已经准确匹配过的
+                        Debug.LogWarning("不覆盖已经准确匹配过的，跳过：" + f.Tag.Title);
                         mIgnoreNum++;
                         continue;
                     }
+
 
                     name = f.Tag.Title.Trim();
 
@@ -319,12 +329,10 @@ namespace Skyhand
                         }
                         else
                         {
-                            yield return Search(path, name, (beanInfo) =>
+                            yield return Search(f.Tag, path, name, (songInfo) =>
                             {
-                                //根据名字搜索歌曲
-                                if (beanInfo != null)
+                                if (songInfo != null)
                                 {
-                                    var songInfo = GetMatchSongInfo(f.Tag.Title, f.Tag.Performers, beanInfo.songs);
                                     mMapKeyInfo.Add(path, songInfo);
                                 }
                                 else
@@ -333,7 +341,7 @@ namespace Skyhand
                                 }
 
                                 f.Dispose();
-                            });
+                            }); 
                         }
 
 
@@ -359,9 +367,11 @@ namespace Skyhand
                                         mMapKeyInfo.TryGetValue(key, out var outInfo);
                                         if (outInfo != null)
                                         {
+                                            var isMatch = outInfo.IsMatch;
                                             var songInfo = songs.Find(v => v.id == outInfo.id);
+                                            songInfo.IsMatch = isMatch;
                                             //替换搜索的实体为详情得到的实体
-                                            mMapKeyInfo[key] = songInfo;
+                                            mMapKeyInfo[key] = songInfo; 
                                         }
                                     }
 
@@ -371,15 +381,17 @@ namespace Skyhand
 
                                         if (songInfo != null)
                                         {
-                                            var fCache = File.Create(keyValuePair.Key); 
+                                            var fCache = File.Create(keyValuePair.Key);
                                             songInfo.bitrate = fCache.Properties.AudioBitrate * 1000;
                                             var comment = JsonMapper.ToJson(songInfo.ToKeyInfo());
                                             fCache.Tag.Comment = "163 key(Don't modify):" +
-                                                                 AesUtils.Encrypt("music:" + comment, AesKey); 
+                                                                 AesUtils.Encrypt("music:" + comment, AesKey);
+                                            //定义是否完全匹配
+                                            fCache.Tag.Description = (songInfo.IsMatch ? MatchTag : "");
                                             fCache.Save();
                                             fCache.Dispose();
-                                            
-                                            var fileName = "/" +Path.GetFileName(keyValuePair.Key); 
+
+                                            var fileName = "/" + Path.GetFileName(keyValuePair.Key);
                                             //根据文件名称来删除数据库
                                             mDataDataService?.DeleteRow(fileName);
                                         }
@@ -406,10 +418,10 @@ namespace Skyhand
             mBtnEdit.GetComponentInChildren<Text>().text = "开始";
             yield return null;
 
-            Debug.Log("搜索完毕,耗时：" + (Time.realtimeSinceStartup - startTime));
+            Debug.Log("搜索完毕,耗时：" + (Time.realtimeSinceStartup - startTime) + "秒");
             mTvStatus.text = "处理完毕:" + mDealNum + "/" + mAllNum + "，忽略:" + mIgnoreNum + "，失败:" + mFailNum;
             mLog.Enqueue(mTvStatus.text);
-             
+
             if (mNeedReOpen)
             {
                 if (mDealNum > 0)
@@ -419,22 +431,97 @@ namespace Skyhand
                 }
 
                 mDataDataService?.Close();
-            } 
-            
+            }
         }
 
+        /// <summary>
+        /// 搜索，进行了3次重试的
+        /// </summary>
+        /// <param name="tag"></param>
+        /// <param name="path"></param>
+        /// <param name="keyword"></param>
+        /// <param name="actionDone"></param>
+        /// <returns></returns>
+        private IEnumerator Search(TagLib.Tag tag, string path, string keyword, Action<SongInfo> actionDone)
+        {
+            var limit = 30;
+            var MaxTryNum = 3;
+
+            var canBreak = false;
+            var currCount = 0;
+            SongInfo songInfo = null;
+
+            for (int i = 0; i <= MaxTryNum; i++)
+            {
+                if (canBreak)
+                {
+                    break;
+                }
+
+                if (i > 0)
+                {
+                    Debug.Log(tag.Title + ",重试：" + i);
+                }
+
+                var canContinue = false;
+                yield return Search(path, keyword, limit, currCount, (searchInfo) =>
+                {
+                    //根据名字搜索歌曲
+                    if (searchInfo != null)
+                    {
+                        var cSongInfo = GetMatchSongInfo(tag.Title, tag.Performers, searchInfo.songs);
+                        if (cSongInfo.IsMatch)
+                        {
+                            //匹配成功
+                            songInfo = cSongInfo;
+                            canBreak = true;
+                        }
+                        else
+                        {
+                            if (i == 0)
+                            {//保存第一首歌
+                                songInfo = cSongInfo;
+                            }
+                        }
+
+                        if (searchInfo.songs != null && searchInfo.songs.Count > 0)
+                        {
+                            currCount += searchInfo.songs.Count;
+                        }
+                        else
+                        {
+                            songInfo = cSongInfo;
+                            canBreak = true;
+                        }
+                    }
+                    else
+                    {
+                        canBreak = true;
+                    }
+
+                    canContinue = true;
+                });
+
+                yield return new WaitUntil(() => canContinue);
+            }
+
+            actionDone?.Invoke(songInfo);
+            yield return null;
+        }
 
         /// <summary>
         /// 搜索歌曲信息
         /// </summary>
         /// <param name="path"></param>
         /// <param name="keyword"></param> 
+        /// <param name="limit"></param> 
+        /// <param name="offset"></param> 
         /// <returns></returns>
-        private IEnumerator Search(string path, string keyword, Action<SearchInfo> actionDone)
+        private IEnumerator Search(string path, string keyword, int limit, int offset, Action<SearchInfo> actionDone)
         {
             // var url = Api  + SearchApi + keyword + "&type=1";
             //limit是每次搜索的条数，数量越多识别得约精准
-            var url = mApi + "?type=1&limit=20&s=" + UnityWebRequest.EscapeURL(keyword);
+            var url = $"{mApi}?type=1&limit={limit}&offset={offset}&s={UnityWebRequest.EscapeURL(keyword)}";
             Debug.Log((int) (mDealNum / 40) + "开始请求搜索：" + url);
             var request = UnityWebRequest.Get(url);
             request.timeout = 5;
@@ -562,6 +649,7 @@ namespace Skyhand
                         if (artist.Contains(s.Trim()))
                         {
                             //作者名字只要有一个适配即可
+                            songInfo.IsMatch = true;
                             return songInfo;
                         }
                     }

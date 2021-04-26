@@ -53,6 +53,9 @@ public class SongInfo
     public int rUrl;
     public int mark;
 
+    //自定义字段，是否百分百匹配
+    public bool IsMatch;
+
     public KeyInfo ToKeyInfo()
     {
         var art = new List<string[]>();

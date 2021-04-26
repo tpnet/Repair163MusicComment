@@ -15,6 +15,7 @@ namespace Skyhand
         public InputField mIpApiAddr;
         public InputField mIpOrigin;
         public Toggle mTgCover;
+        public Toggle mTgCoverMatch;
         public Text mTvStatus;
 
         public Text mTvLog;

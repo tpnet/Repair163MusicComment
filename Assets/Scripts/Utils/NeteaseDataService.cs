@@ -34,7 +34,7 @@ public class NeteaseDataService
         if (!string.IsNullOrEmpty(id))
         {
             var row = _connection.Delete<web_offline_track>(id);
-            Debug.Log("删除行索引：" + row);
+            Debug.Log("删除行索引：" + row + "," + id);
         }
        
     }
